@@ -1,0 +1,59 @@
+# ============================================================
+# mall-ha-bridge 配置示例
+# 用法: cp config.example.yaml config.yaml, 填入你的配置后挂载到容器
+# ============================================================
+
+# ---- 商城消息 MQTT broker(消息来源, 必填)----
+# 即商城系统推送订单消息的那个 MQTT 服务端
+mqtt:
+  host: mqtt.example.com        # MQTT 服务端 IP 或域名
+  port: 1883
+  username: your-username
+  password: your-password
+  qos: 0                    # 订阅 QoS(0/1/2)
+
+# ---- HA 侧 MQTT broker(Discovery 实体注册, 可选)----
+# 填你的 Home Assistant 所连接的 MQTT broker(如本地 mosquitto)。
+# 与 mqtt 是同一个 broker 时, 本段可省略。
+discovery:
+  host: ha-broker.example.com
+  port: 1883
+  username: your-username
+  password: your-password
+
+# ---- 商城账号(必填, 可配多个)----
+devices:
+  - identifier: your-unique-identifier   # 登录商城后生成的独特标识
+    name: 商城外卖                                 # HA 中该设备的显示名
+    icon: mdi:storefront-outline
+    # topic: mall/ha/{identifier}/takeout          # 订阅主题模板, {identifier} 自动替换
+    # ------------------------------------------------
+    # 原样保存整条 JSON 消息的传感器(可选)
+    raw_sensor:
+      name: 最新消息
+      icon: mdi:storefront-outline
+    # ------------------------------------------------
+    # 逐字段定制(可选; 不写则自动生成, 字段名做展示名)
+    fields:
+      orderNo:  { name: 订单号,            icon: mdi:identifier }
+      status:   { name: 状态,              icon: mdi:state-machine }
+      statusText: { name: 状态说明 }
+      shop:     { name: 店铺,              icon: mdi:store }
+      note:     { name: 备注,              icon: mdi:note-text }
+      pickupNo: { name: 取餐号,            icon: mdi:counter }
+      amount:   { name: 金额,              icon: mdi:currency-cny }
+      items:    { name: 商品清单,          icon: mdi:shopping }
+      ts:       { name: 更新时间,          icon: mdi:clock-outline }
+
+# ---- 字段级全局默认(可选, 对所有设备生效)----
+# field_defaults:
+#   status: { name: 状态 }
+
+# ---- 行为开关 ----
+auto_discover: true       # 消息出现未配置的新字段时自动创建 sensor(默认 true)
+republish_raw: false      # 把收到的原始消息转发到 discovery broker 的同名主题
+                          # 直连远程商城 broker、且 HA 侧自动化要监听原主题时开启
+availability: true        # 实体可用性跟踪: 插件离线时实体显示为不可用(默认 true)
+# discovery_prefix: homeassistant    # HA discovery 前缀(默认 homeassistant)
+# availability_topic: mall_ha_bridge/availability
+log_level: INFO           # DEBUG / INFO / WARNING

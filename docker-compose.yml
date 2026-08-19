@@ -1,0 +1,16 @@
+services:
+  mall-ha-bridge:
+    build:
+      context: .
+      # 国内网络可取消注释以下镜像/软件源覆盖:
+      # args:
+      #   BASE_IMAGE: docker.m.daocloud.io/library/python:3.12-slim
+      #   PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+    image: mall-ha-bridge:latest
+    container_name: mall-ha-bridge
+    restart: unless-stopped
+    volumes:
+      # 启动前把 config.example.yaml 复制为 config.yaml 并填好配置
+      - ./config.yaml:/app/config/config.yaml:ro
+    environment:
+      - TZ=Asia/Shanghai

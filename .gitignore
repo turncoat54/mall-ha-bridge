@@ -1,0 +1,17 @@
+# 真实配置(含账号密码)绝不入库
+/config.yaml
+/config.local.yaml
+/test-config.yaml
+*.local.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# 其他
+.DS_Store
+*.log
