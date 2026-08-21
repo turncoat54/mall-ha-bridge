@@ -5,6 +5,18 @@ import pytest
 
 from mall_ha_bridge.parser import humanize_key, parse_payload, sanitize_object_id
 
+# 商城真实推送的消息样例(2026-08-21 从 mall/ha/.../takeout 主题捕获)
+REAL_TAKEOUT_MESSAGE = {
+    "event": "takeout.paid",
+    "orderId": "2090612409536401409",
+    "orderNo": "o202608210930141",
+    "shopName": "惠满家超市",
+    "status": 0,
+    "taskStatus": 1,
+    "etaMinutes": 1305,
+    "occurredAt": "2026-08-21T09:30:17.202960982+08:00",
+}
+
 
 class TestParsePayload:
     def test_flat_json(self):
@@ -39,6 +51,27 @@ class TestParsePayload:
     )
     def test_non_json_returns_none(self, payload):
         assert parse_payload(payload) is None
+
+    # ---- 商城真实消息格式 ----
+    def test_real_takeout_message_fields(self):
+        """真实 takeout 消息 → 各字段解析为字符串(数字转字符串, 不丢失)。"""
+        p = parse_payload(json.dumps(REAL_TAKEOUT_MESSAGE).encode("utf-8"))
+        assert p == {
+            "event": "takeout.paid",
+            "orderId": "2090612409536401409",
+            "orderNo": "o202608210930141",
+            "shopName": "惠满家超市",
+            "status": "0",
+            "taskStatus": "1",
+            "etaMinutes": "1305",
+            "occurredAt": "2026-08-21T09:30:17.202960982+08:00",
+        }
+
+    def test_real_takeout_message_key_set(self):
+        """字段集合与真实消息完全一致(不增不减)。"""
+        p = parse_payload(json.dumps(REAL_TAKEOUT_MESSAGE).encode("utf-8"))
+        assert p is not None
+        assert set(p) == set(REAL_TAKEOUT_MESSAGE)
 
 
 class TestHumanizeKey:

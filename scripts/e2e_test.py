@@ -4,7 +4,7 @@
 自动完成:
   1. 启动临时 mosquitto 容器(18831=商城 feed broker, 18832=HA discovery broker)
   2. 以测试配置启动 mall-ha-bridge 容器(--network host)
-  3. simulate_order.py 发布完整订单生命周期(含动态字段 pickupNo)
+  3. simulate_order.py 发布完整外卖订单事件流(真实消息格式)
   4. 校验 discovery 注册/可用性/原消息转发/去重防回环
   5. 清理全部测试容器
 
@@ -68,9 +68,9 @@ devices:
     fields:
       orderNo: {{ name: 订单号 }}
       status: {{ name: 状态, icon: mdi:state-machine }}
-      statusText: {{ name: 状态说明 }}
-      shop: {{ name: 店铺 }}
-      pickupNo: {{ name: 取餐号 }}
+      shopName: {{ name: 店铺 }}
+      taskStatus: {{ name: 任务状态 }}
+      etaMinutes: {{ name: 预计送达(分钟) }}
 republish_raw: true
 log_level: INFO
 """,
@@ -150,14 +150,14 @@ log_level: INFO
 
     # 断言
     expected_objects = [
+        "mall_e2e_test_0001_event",
+        "mall_e2e_test_0001_order_id",
         "mall_e2e_test_0001_order_no",
+        "mall_e2e_test_0001_shop_name",
         "mall_e2e_test_0001_status",
-        "mall_e2e_test_0001_status_text",
-        "mall_e2e_test_0001_shop",
-        "mall_e2e_test_0001_pickup_no",   # 动态字段(阶段2才出现)
-        "mall_e2e_test_0001_amount",      # 未配置字段(auto_discover)
-        "mall_e2e_test_0001_items",
-        "mall_e2e_test_0001_ts",
+        "mall_e2e_test_0001_task_status",
+        "mall_e2e_test_0001_eta_minutes",
+        "mall_e2e_test_0001_occurred_at",
         "mall_e2e_test_0001_raw",
     ]
     for obj in expected_objects:
@@ -188,10 +188,10 @@ log_level: INFO
     check("availability offline 已发布(优雅停止)",
           "mall_ha_bridge/availability offline" in joined)
 
-    # 去重防回环: 单 broker 拓扑下每阶段恰 2 条(原始 + 转发), 而非无限循环
+    # 去重防回环: 单 broker 拓扑下每事件恰 2 条(原始 + 转发), 而非无限循环
     raw_count = sum(1 for t, _ in msgs if t == TOPIC)
     check("原消息转发 + 回环去重", 5 <= raw_count <= 10, f"{raw_count} 条")
-    check("转发消息含待取餐阶段", "待取餐" in joined)
+    check("转发消息含支付事件", "takeout.paid" in joined)
 
     r = run(["docker", "exec", "mosquitto-test", "mosquitto_sub",
              "-h", "127.0.0.1", "-p", "18832",

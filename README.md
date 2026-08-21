@@ -146,9 +146,10 @@ devices:
       name: 最新消息
       icon: mdi:storefront-outline
     fields:                                        # 可选: 逐字段定制
-      orderNo:  { name: 订单号, icon: mdi:identifier }
-      status:   { name: 状态,   icon: mdi:state-machine }
-      shop:     { name: 店铺 }
+      event:      { name: 事件,   icon: mdi:bell-ring-outline }
+      orderNo:    { name: 订单号, icon: mdi:identifier }
+      shopName:   { name: 店铺,   icon: mdi:store }
+      etaMinutes: { name: 预计送达(分钟), unit_of_measurement: 分钟 }
 ```
 
 `fields` 里每个键对应消息 JSON 的一个字段, 支持:
@@ -221,7 +222,7 @@ mqtt:
 ### 实体
 
 每个字段一个 sensor, 位于设备「商城外卖」下(名字、图标按配置):
-`订单号 / 状态 / 状态说明 / 店铺 / 备注 / 取餐号 / 金额 / 商品清单 / 更新时间 / 最新消息`。
+`事件 / 订单ID / 订单号 / 店铺 / 状态 / 任务状态 / 预计送达(分钟) / 发生时间 / 最新消息`。
 
 ### 仪表盘卡片
 
@@ -234,38 +235,40 @@ mqtt:
 
 ```yaml
 automation:
-  - alias: 取餐提醒
+  - alias: 外卖支付提醒
     trigger:
       - trigger: mqtt
         topic: mall/ha/your-unique-identifier/takeout
-        payload: '"ready"'          # 待取餐
+        payload: '"takeout.paid"'       # 支付事件
     action:
       - action: notify.mobile_app_sm_s9280
         data:
-          title: 外卖好了
-          message: "{{ trigger.payload_json['shop'] }} 的餐做好了, 取餐号 {{ trigger.payload_json['pickupNo'] }}"
+          title: 外卖已支付
+          message: "{{ trigger.payload_json['shopName'] }} 已接单, 预计 {{ trigger.payload_json['etaMinutes'] }} 分钟后送达"
 ```
 
 ## 消息格式
 
-默认主题模板: `mall/ha/{identifier}/takeout`, 负载为 JSON 对象:
+默认主题模板: `mall/ha/{identifier}/takeout`, 负载为 JSON 对象。
+字段以商城实际推送为准(2026-08-21 捕获的真实样例):
 
 ```json
 {
-  "orderNo": "123456789012",
-  "status": "ready",
-  "statusText": "待取餐",
-  "shop": "米村拌饭(万达店)",
-  "note": "少辣",
-  "amount": "38.50",
-  "pickupNo": "A12",
-  "items": [{"name": "石锅拌饭", "qty": 1}],
-  "ts": 1787144306
+  "event": "takeout.paid",
+  "orderId": "2090612409536401409",
+  "orderNo": "o202608210930141",
+  "shopName": "惠满家超市",
+  "status": 0,
+  "taskStatus": 1,
+  "etaMinutes": 1305,
+  "occurredAt": "2026-08-21T09:30:17.202960982+08:00"
 }
 ```
 
-- 每个顶层字段自动变成一个 sensor(嵌套对象/数组会序列化为 JSON 字符串)
+- 每个顶层字段自动变成一个 sensor(数字/布尔等一律转为字符串, 嵌套对象/数组会序列化为 JSON 字符串)
+- `event` 为事件名(如 `takeout.paid` 支付、`takeout.ready` 待取餐), `status`/`taskStatus` 为数字状态码
 - 非 JSON 消息: 仅更新「最新消息」原始传感器
+- 商城仍在开发, 字段可能增减; 未在 `fields` 配置的新字段会被 `auto_discover` 自动创建为 sensor
 
 ## 测试与模拟
 
@@ -286,8 +289,9 @@ docker run --rm --network host mall-ha-bridge:latest \
   --identifier your-unique-identifier
 ```
 
-会按 新订单 → 已接单 → 制作中 → 待取餐 → 已完成 依次发送,
-"待取餐" 阶段新增 `pickupNo` 字段演示动态 discovery。
+按真实消息格式依次发送外卖订单事件流:
+`takeout.paid → takeout.accepted → takeout.preparing → takeout.ready → takeout.finished`,
+每阶段 `status`/`taskStatus`/`etaMinutes` 随之变化。
 
 ## 常见问题
 

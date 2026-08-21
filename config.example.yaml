@@ -34,16 +34,16 @@ devices:
       icon: mdi:storefront-outline
     # ------------------------------------------------
     # 逐字段定制(可选; 不写则自动生成, 字段名做展示名)
+    # 字段按商城实际推送的消息为准(当前示例: 外卖订单 takeout 消息)
     fields:
-      orderNo:  { name: 订单号,            icon: mdi:identifier }
-      status:   { name: 状态,              icon: mdi:state-machine }
-      statusText: { name: 状态说明 }
-      shop:     { name: 店铺,              icon: mdi:store }
-      note:     { name: 备注,              icon: mdi:note-text }
-      pickupNo: { name: 取餐号,            icon: mdi:counter }
-      amount:   { name: 金额,              icon: mdi:currency-cny }
-      items:    { name: 商品清单,          icon: mdi:shopping }
-      ts:       { name: 更新时间,          icon: mdi:clock-outline }
+      event:      { name: 事件,              icon: mdi:bell-ring-outline }
+      orderId:    { name: 订单ID,            icon: mdi:identifier }
+      orderNo:    { name: 订单号,            icon: mdi:identifier }
+      shopName:   { name: 店铺,              icon: mdi:store }
+      status:     { name: 状态,              icon: mdi:state-machine }
+      taskStatus: { name: 任务状态,          icon: mdi:progress-clock }
+      etaMinutes: { name: 预计送达(分钟),    icon: mdi:clock-outline, unit_of_measurement: 分钟 }
+      occurredAt: { name: 发生时间,          icon: mdi:clock-in }
 
 # ---- 字段级全局默认(可选, 对所有设备生效)----
 # field_defaults:
