@@ -30,6 +30,7 @@ from .discovery import (
     field_object_id,
     resolve_field,
 )
+from .notifier import Notifier
 from .parser import parse_payload
 
 log = logging.getLogger("mall-ha-bridge")
@@ -55,6 +56,8 @@ class Bridge:
         self._same_broker_warned = False
         self.feed: Optional[mqtt.Client] = None
         self.disc: Optional[mqtt.Client] = None
+        # 可选: HA 手机通知(配置 notify 段时启用)
+        self.notifier = Notifier(cfg.notify) if cfg.notify is not None else None
 
     # ------------------------------------------------------------------ #
     # 生命周期
@@ -71,6 +74,11 @@ class Bridge:
             self.cfg.discovery_broker().host, self.cfg.discovery_broker().port,
             [d.identifier for d in self.cfg.devices],
         )
+        if self.notifier is not None:
+            log.info(
+                "通知已启用: HA=%s target=%s",
+                self.notifier.cfg.ha_url, self.notifier.cfg.target,
+            )
         while not self._stop.wait(1.0):
             pass  # 连接由 paho 后台线程自动维护
         self._shutdown()
@@ -203,6 +211,9 @@ class Bridge:
             topic,
             sorted(fields) if fields else "(非 JSON, 仅更新原始消息)",
         )
+        # 手机通知(独立于 discovery 连接状态; 内部容错, 失败不影响主流程)
+        if self.notifier is not None:
+            self.notifier.send(fields or {})
         if self.disc is None or not self.disc.is_connected():
             log.warning("discovery broker 未连接, 跳过 discovery 发布")
             return

@@ -22,6 +22,30 @@ def test_load_example(example_cfg_path):
     assert dev.raw_sensor is not None
     assert cfg.auto_discover is True
     assert cfg.republish_raw is False
+    assert cfg.notify is not None
+    assert cfg.notify.ha_url == "http://ha.example.com:8123"
+    assert cfg.notify.target == "mobile_app_sm_s9280"
+    assert cfg.notify.token == "your-long-lived-access-token"
+
+
+def test_notify_optional(tmp_path):
+    p = tmp_path / "cfg.yaml"
+    p.write_text(
+        "mqtt:\n  host: 10.0.0.1\ndevices:\n  - identifier: abc\n",
+        encoding="utf-8",
+    )
+    cfg = Config.load(str(p))
+    assert cfg.notify is None
+
+
+def test_notify_invalid(tmp_path):
+    p = tmp_path / "cfg.yaml"
+    p.write_text(
+        "mqtt:\n  host: 10.0.0.1\nnotify:\n  ha_url: http://h\ndevices:\n  - identifier: abc\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError, match="token"):
+        Config.load(str(p))
 
 
 def test_subscribe_topics():

@@ -5,6 +5,7 @@ config.yaml 结构(字段说明见 config.example.yaml):
     mqtt:           商城消息 broker(必填)
     discovery:      HA 侧 broker(可选, 缺省复用 mqtt)
     devices:        商城账号独特标识列表(必填, 至少一个)
+    notify:         HA 手机通知(可选, 缺省不推送)
     field_defaults: 字段级全局默认配置(可选)
     auto_discover:  消息出现新字段时自动创建 sensor(默认 true)
     republish_raw:  原样转发消息到 discovery broker(默认 false)
@@ -92,6 +93,38 @@ class FieldConfig:
 
 
 @dataclass
+class NotifyConfig:
+    """HA 手机通知(可选): 收到订单消息时调 HA REST API 的 notify 服务推送。"""
+
+    ha_url: str
+    token: str
+    target: str
+    enabled: bool = True
+
+    @classmethod
+    def from_dict(cls, d) -> "NotifyConfig":
+        if d is None:
+            raise ConfigError("notify 配置段为空")
+        if not isinstance(d, dict):
+            raise ConfigError("notify 配置段必须是键值对象")
+        ha_url = str(d.get("ha_url") or "").rstrip("/")
+        if not ha_url:
+            raise ConfigError("notify.ha_url 必填(Home Assistant 地址, 如 http://ha.example.com:8123)")
+        token = str(d.get("token") or "")
+        if not token:
+            raise ConfigError("notify.token 必填(HA 长期访问令牌, 设置→长期访问令牌)")
+        target = str(d.get("target") or "")
+        if not target:
+            raise ConfigError("notify.target 必填(notify 服务名, 如 mobile_app_sm_s9280)")
+        return cls(
+            ha_url=ha_url,
+            token=token,
+            target=target,
+            enabled=bool(d.get("enabled", True)),
+        )
+
+
+@dataclass
 class DeviceConfig:
     """一个商城账号(独特标识)对应的设备。"""
 
@@ -132,6 +165,7 @@ class Config:
     mqtt: BrokerConfig
     devices: list[DeviceConfig]
     discovery: Optional[BrokerConfig] = None
+    notify: Optional[NotifyConfig] = None
     field_defaults: dict = field(default_factory=dict)  # key -> FieldConfig
     auto_discover: bool = True
     republish_raw: bool = False
@@ -173,6 +207,10 @@ class Config:
         if data.get("discovery") is not None:
             discovery = BrokerConfig.from_dict(data["discovery"], "discovery")
 
+        notify = None
+        if data.get("notify") is not None:
+            notify = NotifyConfig.from_dict(data["notify"])
+
         devices_raw = data.get("devices")
         if not devices_raw:
             raise ConfigError("缺少 devices 配置段(至少配置一个商城账号标识)")
@@ -186,6 +224,7 @@ class Config:
         return cls(
             mqtt=mqtt_cfg,
             discovery=discovery,
+            notify=notify,
             devices=devices,
             field_defaults=field_defaults,
             auto_discover=bool(data.get("auto_discover", True)),

@@ -228,6 +228,33 @@ mqtt:
 
 编辑概览 → 添加卡片 → 按实体 → 搜索 "商城" 即可拖入。
 
+### 手机通知(内置, 推荐)
+
+插件可**直接推送手机通知**(无需 HA 侧自动化): 配置 `notify` 段后, 每条订单
+消息到达都会通过 HA REST API 调 notify 服务推送一条美化排版的通知:
+
+```yaml
+notify:
+  ha_url: http://ha.example.com:8123        # Home Assistant 地址
+  token: your-long-lived-access-token       # HA 长期访问令牌(设置→账户→安全→长期访问令牌)
+  target: mobile_app_sm_s9280               # notify 服务名(手机 App)
+```
+
+通知内容自动格式化(换行排版, 仅保留有用信息):
+
+```
+惠满家超市 · 取餐通知          ← 标题: 店铺 + 事件中文
+🏪 店铺: 惠满家超市
+📌 状态: 已支付               ← event → 中文(已支付/商家已接单/备餐中/待取餐/已完成)
+🧾 订单号: o202608221035371
+⏱ 预计送达: 约 21 小时 45 分钟  ← etaMinutes ≥60 自动换算小时
+```
+
+- 丢弃 `orderId` / `status` / `taskStatus` / `occurredAt` 等内部或冗余字段
+- 未识别的事件码原样显示, 便于发现新事件值
+- 通知失败只记日志, 不影响 discovery 发布 / republish 等主流程
+- 不配置 `notify` 段 = 完全不推送(通知逻辑可留给下方 HA 自动化方案)
+
 ### 自动化(通知等)
 
 消息同时到达主题 `mall/ha/<标识>/takeout`(模式 A 需开启 `republish_raw`,
