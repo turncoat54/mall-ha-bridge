@@ -75,10 +75,22 @@ class Bridge:
             [d.identifier for d in self.cfg.devices],
         )
         if self.notifier is not None:
-            log.info(
-                "通知已启用: HA=%s target=%s",
-                self.notifier.cfg.ha_url, self.notifier.cfg.target,
-            )
+            if self.notifier.enabled:
+                targets_desc = (
+                    ", ".join(self.notifier.cfg.targets)
+                    if self.notifier.cfg.targets
+                    else "(自动发现全部 mobile_app 设备)"
+                )
+                log.info(
+                    "通知已启用: HA=%s targets=%s",
+                    self.notifier.cfg.ha_url, targets_desc,
+                )
+                # 启动欢迎通知: 验证 token/链路, 给用户即时反馈(失败只记日志)
+                self.notifier.send_welcome()
+            else:
+                log.warning(
+                    "notify 已配置但未启用(token 为空或 enabled: false), 手机通知关闭"
+                )
         while not self._stop.wait(1.0):
             pass  # 连接由 paho 后台线程自动维护
         self._shutdown()

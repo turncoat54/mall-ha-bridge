@@ -237,8 +237,17 @@ mqtt:
 notify:
   ha_url: http://ha.example.com:8123        # Home Assistant 地址
   token: your-long-lived-access-token       # HA 长期访问令牌(设置→账户→安全→长期访问令牌)
-  target: mobile_app_sm_s9280               # notify 服务名(手机 App)
+  target:                                   # 留空 = 自动发现全部手机 App 设备
+    # - mobile_app_sm_s9280                 # 只想推特定设备时列出(字符串或列表均可)
 ```
+
+- **`target` 留空 = 自动发现**: 插件每次推送前调 HA API 自动列出全部
+  `mobile_app_*` 设备并群发 —— 新用户只需填 `ha_url` + `token`, 无需知道
+  任何设备名; 家里新增手机/平板装好 HA App 后自动纳入通知, 无需改配置。
+  想只推特定设备时, 把 `target` 填成设备名或列表即可(白名单)。
+- `token` 留空则通知不启用(插件其余功能正常); 插件启动成功时会推送一条
+  「mall-ha-bridge 已启动」欢迎通知, 作为配置成功的即时反馈。
+- 注意: token 建议用**管理员账号**创建(普通用户角色可能无权调用 notify 服务)。
 
 通知内容自动格式化(换行排版, 仅保留有用信息):
 
@@ -252,7 +261,8 @@ notify:
 
 - 丢弃 `orderId` / `status` / `taskStatus` / `occurredAt` 等内部或冗余字段
 - 未识别的事件码原样显示, 便于发现新事件值
-- 通知失败只记日志, 不影响 discovery 发布 / republish 等主流程
+- 通知失败只记日志, 不影响 discovery 发布 / republish 等主流程; 多设备时
+  逐台发送, 一台失败不影响其他
 - 不配置 `notify` 段 = 完全不推送(通知逻辑可留给下方 HA 自动化方案)
 
 ### 自动化(通知等)

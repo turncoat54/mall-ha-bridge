@@ -94,11 +94,16 @@ class FieldConfig:
 
 @dataclass
 class NotifyConfig:
-    """HA 手机通知(可选): 收到订单消息时调 HA REST API 的 notify 服务推送。"""
+    """HA 手机通知(可选): 收到订单消息时调 HA REST API 的 notify 服务推送。
+
+    targets 为空列表 = 自动发现 HA 上全部 mobile_app 设备并群发;
+    配置了 = 白名单, 只推这些设备。
+    token 为空时通知功能自动禁用(插件其余功能不受影响)。
+    """
 
     ha_url: str
     token: str
-    target: str
+    targets: list[str] = field(default_factory=list)
     enabled: bool = True
 
     @classmethod
@@ -111,16 +116,20 @@ class NotifyConfig:
         if not ha_url:
             raise ConfigError("notify.ha_url 必填(Home Assistant 地址, 如 http://ha.example.com:8123)")
         token = str(d.get("token") or "")
-        if not token:
-            raise ConfigError("notify.token 必填(HA 长期访问令牌, 设置→长期访问令牌)")
-        target = str(d.get("target") or "")
-        if not target:
-            raise ConfigError("notify.target 必填(notify 服务名, 如 mobile_app_sm_s9280)")
+        target_raw = d.get("target")
+        if target_raw is None:
+            targets: list[str] = []
+        elif isinstance(target_raw, str):
+            targets = [target_raw.strip()] if target_raw.strip() else []
+        elif isinstance(target_raw, list):
+            targets = [str(t).strip() for t in target_raw if str(t).strip()]
+        else:
+            raise ConfigError("notify.target 必须是字符串或字符串列表")
         return cls(
             ha_url=ha_url,
             token=token,
-            target=target,
-            enabled=bool(d.get("enabled", True)),
+            targets=targets,
+            enabled=bool(d.get("enabled", True)) and bool(token),
         )
 
 

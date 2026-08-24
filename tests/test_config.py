@@ -24,7 +24,7 @@ def test_load_example(example_cfg_path):
     assert cfg.republish_raw is False
     assert cfg.notify is not None
     assert cfg.notify.ha_url == "http://ha.example.com:8123"
-    assert cfg.notify.target == "mobile_app_sm_s9280"
+    assert cfg.notify.targets == []  # example 中留空 = 自动发现全部手机
     assert cfg.notify.token == "your-long-lived-access-token"
 
 
@@ -38,14 +38,16 @@ def test_notify_optional(tmp_path):
     assert cfg.notify is None
 
 
-def test_notify_invalid(tmp_path):
+def test_notify_token_empty_disables(tmp_path):
+    """token 留空 = 通知不启用, 但配置解析成功(插件其余功能正常)。"""
     p = tmp_path / "cfg.yaml"
     p.write_text(
         "mqtt:\n  host: 10.0.0.1\nnotify:\n  ha_url: http://h\ndevices:\n  - identifier: abc\n",
         encoding="utf-8",
     )
-    with pytest.raises(ConfigError, match="token"):
-        Config.load(str(p))
+    cfg = Config.load(str(p))
+    assert cfg.notify is not None
+    assert cfg.notify.enabled is False
 
 
 def test_subscribe_topics():

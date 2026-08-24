@@ -48,11 +48,16 @@ devices:
 # ---- HA 手机通知(可选, 不配置则不推送)----
 # 收到订单消息时, 插件直接调 HA REST API 的 notify 服务推送手机通知,
 # 内容自动美化(店铺/状态中文/订单号/预计送达, 换行排版)。
-# 注: HA 的长期访问令牌在「设置 → 账户 → 安全 → 长期访问令牌」创建。
+# target 留空 = 自动发现 HA 上全部手机 App(mobile_app_*)设备并群发 ——
+#   新用户无需知道任何设备名, 填 ha_url + token 即可;
+# 填了 = 白名单, 只推这些设备(字符串或列表均可)。
+# 注: HA 的长期访问令牌在「设置 → 账户 → 安全 → 长期访问令牌」创建;
+#     token 留空则通知不启用(插件其余功能正常)。
 notify:
   ha_url: http://ha.example.com:8123        # Home Assistant 地址
   token: your-long-lived-access-token       # HA 长期访问令牌(敏感, 勿提交到仓库)
-  target: mobile_app_sm_s9280               # notify 服务名(手机 App 通知)
+  target:                                   # 留空 = 自动发现全部手机 App
+    # - mobile_app_sm_s9280                 # 只想推特定设备时取消注释并列出
   # enabled: true                           # 总开关(默认 true)
 
 # ---- 字段级全局默认(可选, 对所有设备生效)----
