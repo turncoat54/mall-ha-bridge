@@ -22,13 +22,14 @@ log = logging.getLogger("mall-ha-bridge")
 # 避免误推 telegram / email / persistent_notification 等其他 notify 服务
 MOBILE_APP_PREFIX = "mobile_app_"
 
-# 事件码 → 中文展示名(以商城实测事件流为准, 见 scripts/simulate_order.py)
+# 事件码 → 中文展示名(商城契约 2026-08-22, 与 config.yaml fields 注释一致;
+# 上游仍在开发, 取值可能变化, 以实捕消息为准)
 EVENT_LABELS = {
-    "takeout.paid": "已支付",
-    "takeout.accepted": "商家已接单",
-    "takeout.preparing": "备餐中",
-    "takeout.ready": "待取餐",
-    "takeout.finished": "已完成",
+    "takeout.paid": "支付成功",
+    "takeout.picked_up": "骑手已取餐",
+    "takeout.out_for_delivery": "配送中/已发货",
+    "takeout.near_door": "快到家(进入收货围栏)",
+    "takeout.deliverd": "已送达",
 }
 
 HTTP_TIMEOUT = 10  # 秒; HA 无响应不阻塞消息处理太久

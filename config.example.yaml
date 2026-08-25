@@ -35,14 +35,38 @@ devices:
     # ------------------------------------------------
     # 逐字段定制(可选; 不写则自动生成, 字段名做展示名)
     # 字段按商城实际推送的消息为准(当前示例: 外卖订单 takeout 消息)
+    # ------------------------------------------------
+    # 消息字段说明(商城契约 2026-08-22 实捕示例):
+    # {"event":"takeout.paid","orderId":"2090991251358797826",
+    #  "orderNo":"o202608221035371","shopName":"惠满家超市","status":0,
+    #  "taskStatus":1,"etaMinutes":1305,
+    #  "occurredAt":"2026-08-22T10:35:40.148741074+08:00"}
+    # event: takeout.paid=支付成功 | takeout.picked_up=骑手已取餐 |
+    #   takeout.out_for_delivery=配送中/已发货 | takeout.near_door=快到家
+    #   (进入收货围栏, 多带 distanceMeters) | takeout.deliverd=已送达
+    # taskStatus: 1=待派单 | 2=骑手取货中 | 3=配送中 | 4=待收货 | 9=已取消
+    # ------------------------------------------------
     fields:
-      event:      { name: 事件,              icon: mdi:bell-ring-outline }
+      event:
+        name: 事件
+        icon: mdi:bell-ring-outline
+        # 事件名 → 中文说明(未知事件原样显示)
+        value_template: "{{ {'takeout.paid':'支付成功','takeout.picked_up':'骑手已取餐','takeout.out_for_delivery':'配送中/已发货','takeout.near_door':'快到家(进入收货围栏)','takeout.deliverd':'已送达'}.get((value_json|default({})).get('event','')|string, (value_json|default({})).get('event','')) }}"
       orderId:    { name: 订单ID,            icon: mdi:identifier }
       orderNo:    { name: 订单号,            icon: mdi:identifier }
       shopName:   { name: 店铺,              icon: mdi:store }
       status:     { name: 状态,              icon: mdi:state-machine }
-      taskStatus: { name: 任务状态,          icon: mdi:progress-clock }
+      taskStatus:
+        name: 任务状态
+        icon: mdi:progress-clock
+        # 状态码 → 中文说明(未知码原样显示)
+        value_template: "{{ {'1':'待派单','2':'骑手取货中','3':'配送中','4':'待收货','9':'已取消'}.get((value_json|default({})).get('taskStatus','')|string, (value_json|default({})).get('taskStatus','')) }}"
       etaMinutes: { name: 预计送达(分钟),    icon: mdi:clock-outline, unit_of_measurement: 分钟 }
+      distanceMeters:
+        name: 距离(米)
+        icon: mdi:map-marker-distance
+        unit_of_measurement: 米
+        # 仅 takeout.near_door 事件时上游会多带此字段; 平时不出现则不生成实体
       occurredAt: { name: 发生时间,          icon: mdi:clock-in }
 
 # ---- HA 手机通知(可选, 不配置则不推送)----

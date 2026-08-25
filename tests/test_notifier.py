@@ -62,7 +62,7 @@ def test_build_notification_real_message():
     lines = message.split("\n")
     assert len(lines) == 4
     assert lines[0] == "🏪 店铺: 惠满家超市"
-    assert lines[1] == "📌 状态: 已支付"
+    assert lines[1] == "📌 状态: 支付成功"
     assert lines[2] == "🧾 订单号: o202608221035371"
     assert lines[3] == "⏱ 预计送达: 约 21 小时 45 分钟"
     # 无用字段被丢弃(注意: orderNo 里含数字 0, 断言用键名而非字符)

@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """模拟商城订单 MQTT 消息(测试/演示用)。
 
-按商城真实推送的消息格式构造外卖订单事件流:
-    takeout.paid → takeout.accepted → takeout.preparing → takeout.ready → takeout.finished
+按商城真实推送的消息格式构造外卖订单事件流(2026-08-22 契约):
+    takeout.paid → takeout.picked_up → takeout.out_for_delivery
+    → takeout.near_door → takeout.deliverd
 
-真实消息样例(2026-08-21 捕获):
+真实消息样例(2026-08-22 捕获):
     {
       "event": "takeout.paid",
-      "orderId": "2090612409536401409",
-      "orderNo": "o202608210930141",
+      "orderId": "2090991251358797826",
+      "orderNo": "o202608221035371",
       "shopName": "惠满家超市",
       "status": 0,
       "taskStatus": 1,
       "etaMinutes": 1305,
-      "occurredAt": "2026-08-21T09:30:17.202960982+08:00"
+      "occurredAt": "2026-08-22T10:35:40.148741074+08:00"
     }
 
 用法(容器内):
@@ -33,13 +34,14 @@ import paho.mqtt.client as mqtt
 
 DEFAULT_TOPIC = "mall/ha/{identifier}/takeout"
 
-# 事件流: (event, status, taskStatus, etaMinutes)
+# 事件流: (event, status, taskStatus, etaMinutes, 附加字段)
+# taskStatus 语义: 1=待派单 2=骑手取货中 3=配送中 4=待收货 9=已取消
 STAGES = [
-    ("takeout.paid",      0, 1, 35),
-    ("takeout.accepted",  1, 2, 30),
-    ("takeout.preparing", 2, 3, 20),
-    ("takeout.ready",     3, 4, 5),
-    ("takeout.finished",  4, 5, 0),
+    ("takeout.paid",             0, 1, 35, {}),  # 支付成功 → 待派单
+    ("takeout.picked_up",        1, 3, 25, {}),  # 骑手已取餐 → 配送中
+    ("takeout.out_for_delivery", 2, 4, 15, {}),  # 配送中/已发货
+    ("takeout.near_door",        3, 4, 5,  {"distanceMeters": 320}),  # 快到家, 多带距离字段
+    ("takeout.deliverd",         4, 4, 0,  {}),  # 已送达
 ]
 
 SHOP_NAMES = ["惠满家超市", "米村拌饭(万达店)", "沙县小吃(人民路店)"]
@@ -62,7 +64,7 @@ def build_order_no() -> str:
 def build_stages(order_no: str, order_id: str, shop_name: str) -> list[tuple[str, dict]]:
     """按真实消息格式构造完整事件流。"""
     stages = []
-    for event, status, task_status, eta in STAGES:
+    for event, status, task_status, eta, extra in STAGES:
         payload = {
             "event": event,
             "orderId": order_id,
@@ -73,6 +75,7 @@ def build_stages(order_no: str, order_id: str, shop_name: str) -> list[tuple[str
             "etaMinutes": eta,
             "occurredAt": datetime.now().astimezone().isoformat(),
         }
+        payload.update(extra)
         stages.append((event, payload))
     return stages
 
