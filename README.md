@@ -180,7 +180,7 @@ AI / 自动化读这一个实体即拿到全部结构化数据, 无需从 N 个�
 
 | 配置项 | 默认 | 说明 |
 |---|---|---|
-| `auto_discover` | true | 消息出现未配置的新字段时自动创建 sensor |
+| `auto_discover` | true | 消息出现未配置的新字段时自动创建 sensor; false=只发配置过的字段, 新字段记日志(2026-08-26 起真正生效, 此前为死配置) |
 | `republish_raw` | false | 把收到的原始消息转发到 discovery broker 的同名主题(见下) |
 | `availability` | true | 实体可用性跟踪, 插件离线显示不可用 |
 | `discovery_prefix` | homeassistant | HA discovery 前缀 |
@@ -317,7 +317,7 @@ automation:
 - 每个顶层字段自动变成一个 sensor(数字/布尔等一律转为字符串, 嵌套对象/数组会序列化为 JSON 字符串)
 - `event` 为事件名(如 `takeout.paid` 支付、`takeout.ready` 待取餐), `status`/`taskStatus` 为数字状态码
 - 非 JSON 消息: 仅更新「最新消息」原始传感器
-- 商城仍在开发, 字段可能增减; 未在 `fields` 配置的新字段会被 `auto_discover` 自动创建为 sensor
+- 商城仍在开发, 字段可能增减; 未在 `fields` 配置的新字段: `auto_discover: true` 时自动创建为 sensor(默认模板自动取名), `false`(推荐)时只记日志, 人工在 `fields` 定义后重启容器
 
 ## 测试与模拟
 

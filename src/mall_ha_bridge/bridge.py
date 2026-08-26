@@ -191,6 +191,10 @@ class Bridge:
                 return dev
         return None
 
+    def _field_configured(self, dev: DeviceConfig, key: str) -> bool:
+        """字段是否在配置中定义过(devices[].fields 或 field_defaults)。"""
+        return key in dev.fields or key in self.cfg.field_defaults
+
     def _is_duplicate(self, topic: str, payload: bytes) -> bool:
         """去重窗口内出现过的 (topic, payload) 视为重复(回环/重复投递)。"""
         key = (topic, payload)
@@ -254,6 +258,9 @@ class Bridge:
             for key in fields:
                 fc = resolve_field(self.cfg, dev, key)
                 if not fc.enabled:
+                    continue
+                if not self.cfg.auto_discover and not self._field_configured(dev, key):
+                    log.info("auto_discover 关闭, 忽略未配置字段 %s", key)
                     continue
                 obj_id = field_object_id(dev, key, fc)
                 self._publish_once(
