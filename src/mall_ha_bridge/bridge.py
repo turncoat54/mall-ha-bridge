@@ -26,6 +26,7 @@ from .config import Config, DeviceConfig
 from .discovery import (
     build_field_payload,
     build_raw_payload,
+    build_summary_payload,
     discovery_topic,
     field_object_id,
     resolve_field,
@@ -262,6 +263,9 @@ class Bridge:
         raw = build_raw_payload(self.cfg, dev, topic, __version__)
         if raw is not None:
             self._publish_once(raw["object_id"], raw)
+        summary = build_summary_payload(self.cfg, dev, topic, __version__)
+        if summary is not None:
+            self._publish_once(summary["object_id"], summary)
 
     def _publish_once(self, object_id: str, payload: dict) -> None:
         """每个 object_id 仅在首次(或内容变化)时发布, 消息 retained。"""

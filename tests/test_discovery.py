@@ -1,9 +1,11 @@
 """discovery 模块单元测试。"""
 from mall_ha_bridge.config import FieldConfig
 from mall_ha_bridge.discovery import (
+    DEFAULT_SUMMARY_TEMPLATE,
     availability_block,
     build_field_payload,
     build_raw_payload,
+    build_summary_payload,
     discovery_topic,
     field_object_id,
     resolve_field,
@@ -102,3 +104,53 @@ def test_disabled_field_object_id():
     dev = cfg.devices[0]
     fc = FieldConfig(object_id="custom_id")
     assert field_object_id(dev, "orderNo", fc) == f"mall_{SID}_custom_id"
+
+
+# --------------------------------------------------------------------------- #
+# 富实体(订单摘要)
+# --------------------------------------------------------------------------- #
+def test_summary_payload_structure():
+    cfg = make_cfg()
+    dev = cfg.devices[0]
+    dev.summary = {"name": "外卖订单", "icon": "mdi:food-takeout-box"}
+    p = build_summary_payload(cfg, dev, TEST_TOPIC, SW)
+    assert p is not None
+    assert p["name"] == "外卖订单"
+    assert p["unique_id"] == f"mall_ha_{TEST_IDENTIFIER}_summary"
+    assert p["object_id"] == f"mall_{SID}_summary"
+    assert p["state_topic"] == TEST_TOPIC
+    assert p["icon"] == "mdi:food-takeout-box"
+    # attributes 平铺整条 JSON: AI 读一个实体拿全部结构化字段
+    # (json_attributes_topic 必须显式指定, 2026.x 缺省时 attributes 订阅不生效;
+    #  模板须 tojson, 否则 Jinja 输出 Python repr 导致 HA 报 Erroneous JSON)
+    assert p["json_attributes_topic"] == TEST_TOPIC
+    assert p["json_attributes_template"] == "{{ value_json | tojson }}"
+    # 默认摘要模板含事件码值映射
+    assert "takeout.paid" in p["value_template"]
+    assert "taskStatus" in p["value_template"]
+    assert p["device"]["identifiers"] == [f"mall_ha_{TEST_IDENTIFIER}"]
+    assert p["device"]["name"] == "测试商城"
+    assert p["availability_topic"] == cfg.availability_topic
+
+
+def test_summary_defaults_name_and_icon():
+    cfg = make_cfg()
+    dev = cfg.devices[0]
+    dev.summary = {}
+    p = build_summary_payload(cfg, dev, TEST_TOPIC, SW)
+    assert p["name"] == "外卖订单"  # 默认名
+    assert p["icon"] == dev.icon  # 回退设备图标
+    assert p["value_template"] == DEFAULT_SUMMARY_TEMPLATE
+
+
+def test_summary_custom_template():
+    cfg = make_cfg()
+    dev = cfg.devices[0]
+    dev.summary = {"value_template": "{{ value_json['orderNo'] }}"}
+    p = build_summary_payload(cfg, dev, TEST_TOPIC, SW)
+    assert p["value_template"] == "{{ value_json['orderNo'] }}"
+
+
+def test_no_summary_returns_none():
+    cfg = make_cfg()
+    assert build_summary_payload(cfg, cfg.devices[0], TEST_TOPIC, SW) is None

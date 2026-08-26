@@ -33,6 +33,16 @@ devices:
       name: 最新消息
       icon: mdi:storefront-outline
     # ------------------------------------------------
+    # 富实体 / 订单摘要(可选; 不写或写 summary: 则不启用)
+    # 一个实体承载整个订单: state=一句话摘要(店铺 · 状态 · 订单号),
+    # attributes=整条 JSON 全部字段平铺。AI/自动化读这一个实体即拿到
+    # 全部结构化数据, 无需从 N 个扁平 sensor 拼装上下文。
+    # value_template 可自定义覆盖(默认模板含 event/taskStatus 码值→中文映射)。
+    summary:
+      name: 外卖订单
+      icon: mdi:food-takeout-box
+      # value_template: "{{ value_json['orderNo'] }}"
+    # ------------------------------------------------
     # 逐字段定制(可选; 不写则自动生成, 字段名做展示名)
     # 字段按商城实际推送的消息为准(当前示例: 外卖订单 takeout 消息)
     # ------------------------------------------------

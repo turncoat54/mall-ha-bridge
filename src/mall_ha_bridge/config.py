@@ -142,6 +142,7 @@ class DeviceConfig:
     icon: str = "mdi:storefront-outline"
     topic: str = DEFAULT_TOPIC_TEMPLATE
     raw_sensor: Optional[dict] = None
+    summary: Optional[dict] = None
     fields: dict = field(default_factory=dict)  # key -> FieldConfig
 
     @classmethod
@@ -158,6 +159,9 @@ class DeviceConfig:
         raw_sensor = d.get("raw_sensor")
         if raw_sensor is not None and not isinstance(raw_sensor, dict):
             raise ConfigError(f"devices[{index}].raw_sensor 必须是键值对象")
+        summary = d.get("summary")
+        if summary is not None and not isinstance(summary, dict):
+            raise ConfigError(f"devices[{index}].summary 必须是键值对象")
         fields = {str(k): FieldConfig.from_dict(v) for k, v in (d.get("fields") or {}).items()}
         return cls(
             identifier=identifier,
@@ -165,6 +169,7 @@ class DeviceConfig:
             icon=str(d.get("icon") or "mdi:storefront-outline"),
             topic=str(topic),
             raw_sensor=raw_sensor,
+            summary=summary,
             fields=fields,
         )
 

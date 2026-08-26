@@ -128,3 +128,57 @@ def build_raw_payload(
         payload["icon"] = dev.icon
     payload.update(availability_block(cfg))
     return payload
+
+
+# 富实体(订单摘要)默认摘要模板: 店铺 · 状态 · 订单号。
+# event/taskStatus 码值映射与 config.yaml fields 注释一致(商城契约 2026-08-22)。
+# 未知 event/taskStatus 时对应项留空(被 select 过滤), 不显示错误文本。
+DEFAULT_SUMMARY_TEMPLATE = (
+    "{% set d = value_json | default({}) %}"
+    "{% set ev = {'takeout.paid':'支付成功','takeout.picked_up':'骑手已取餐',"
+    "'takeout.out_for_delivery':'配送中/已发货','takeout.near_door':'快到家(进入收货围栏)',"
+    "'takeout.deliverd':'已送达'} %}"
+    "{% set ts = {'1':'待派单','2':'骑手取货中','3':'配送中','4':'待收货','9':'已取消'} %}"
+    "{% set st = ev.get(d.get('event','')|string) or ts.get(d.get('taskStatus','')|string) or '' %}"
+    "{{ [d.get('shopName',''), st, d.get('orderNo','')] | select() | select('!=','') | join(' · ') }}"
+)
+
+
+def build_summary_payload(
+    cfg: Config,
+    dev: DeviceConfig,
+    state_topic: str,
+    sw_version: str,
+) -> Optional[dict]:
+    """富实体(订单摘要): 一个实体承载整个订单。
+
+    - state: 一句话人话摘要(店铺 · 状态 · 订单号), 由 value_template 渲染;
+    - attributes: 整条 JSON 平铺(json_attributes_template), AI/自动化读这一个
+      实体的 attributes 即可拿到全部结构化字段, 无需从 N 个扁平 sensor 拼装。
+
+    未配置 dev.summary 时返回 None。模板可用 summary.value_template 覆盖。
+    """
+    s = dev.summary
+    if s is None:  # 未配置(devices[].summary 缺省或显式 null); 空 dict = 启用+全默认
+        return None
+    object_id = f"{ENTITY_PREFIX}_{sanitize_object_id(dev.identifier)}_summary"
+    payload = {
+        "name": s.get("name") or "外卖订单",
+        "unique_id": f"mall_ha_{dev.identifier}_summary",
+        "object_id": object_id,
+        "state_topic": state_topic,
+        "value_template": s.get("value_template") or DEFAULT_SUMMARY_TEMPLATE,
+        # attributes 需显式 json_attributes_topic(2026.x 未设置时订阅不生效),
+        # 与 state 同一主题; 模板必须 tojson(Jinja 渲染 dict 默认输出 Python
+        # repr 单引号格式, HA json_loads 会报 Erroneous JSON)
+        "json_attributes_topic": state_topic,
+        "json_attributes_template": "{{ value_json | tojson }}",
+        "qos": cfg.mqtt.qos,
+        "device": device_info(cfg, dev, sw_version),
+    }
+    if s.get("icon"):
+        payload["icon"] = s["icon"]
+    elif dev.icon:
+        payload["icon"] = dev.icon
+    payload.update(availability_block(cfg))
+    return payload

@@ -12,6 +12,7 @@
 - **零 HA 配置**: 基于 MQTT Discovery, 实体全自动注册, 不碰 configuration.yaml / mqtt.yaml
 - **配置即文件**: 启动容器前在 `config.yaml` 里配好 MQTT 服务端、账号密码、独特标识
 - **动态字段**: 消息里出现新字段时自动创建新 sensor(可关闭)
+- **富实体**: 可选「订单摘要」实体, 一个实体承载整个订单(一句话摘要 + 全部字段 attributes), AI 决策零拼装
 - **多账号支持**: `devices` 列表可配多个独特标识, 每个标识生成一组独立设备/实体
 - **直连远程商城 broker**: 不再依赖 mosquitto bridge 转发
 - **可用性跟踪**: 插件离线时实体自动显示为"不可用"
@@ -145,6 +146,10 @@ devices:
     raw_sensor:                                    # 可选: 整条 JSON 原文传感器
       name: 最新消息
       icon: mdi:storefront-outline
+    summary:                                       # 可选: 富实体(订单摘要)
+      name: 外卖订单
+      icon: mdi:food-takeout-box
+      # value_template: "{{ value_json['orderNo'] }}"   # 可选: 自定义摘要模板
     fields:                                        # 可选: 逐字段定制
       event:      { name: 事件,   icon: mdi:bell-ring-outline }
       orderNo:    { name: 订单号, icon: mdi:identifier }
@@ -163,6 +168,13 @@ devices:
 | `value_template` | 自定义取值模板(缺省 `{{ (value_json \| default({}))['字段'] \| default('') }}`) |
 | `enabled` | 设为 false 则不为该字段创建实体 |
 | `object_id` | 自定义实体 id 后缀 |
+
+`summary`(富实体 / 订单摘要)把整个订单收敛到一个实体: state 是一句话人话摘要
+(店铺 · 状态 · 订单号, 由 value_template 渲染, 默认模板含 event/taskStatus
+码值→中文映射), attributes 是整条 JSON 全部字段平铺(json_attributes_template)。
+AI / 自动化读这一个实体即拿到全部结构化数据, 无需从 N 个扁平 sensor 拼装
+上下文 —— 适合作为"每系统一行"的 AI 决策数据层。`summary` 缺省或显式写
+`summary:` 不启用; 空段 `summary: {}` 启用并全用默认值。
 
 ### 全局开关
 
