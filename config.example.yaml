@@ -99,7 +99,8 @@ notify:
 #   status: { name: 状态 }
 
 # ---- 行为开关 ----
-auto_discover: false     # 消息出现未配置的新字段时自动创建 sensor; false=静态 schema, 新字段只进日志
+# 静态 schema: 消息里出现 fields 段未定义的新字段时不自动建实体, 只记日志
+# (INFO: 字段 xxx 未在配置中定义, 忽略), 人工在 fields 定义后重启容器
 republish_raw: false      # 把收到的原始消息转发到 discovery broker 的同名主题
                           # 直连远程商城 broker、且 HA 侧自动化要监听原主题时开启
 availability: true        # 实体可用性跟踪: 插件离线时实体显示为不可用(默认 true)

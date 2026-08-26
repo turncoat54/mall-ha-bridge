@@ -20,7 +20,6 @@ def test_load_example(example_cfg_path):
     assert dev.topic == DEFAULT_TOPIC_TEMPLATE
     assert "orderNo" in dev.fields
     assert dev.raw_sensor is not None
-    assert cfg.auto_discover is True
     assert cfg.republish_raw is False
     assert cfg.notify is not None
     assert cfg.notify.ha_url == "http://ha.example.com:8123"

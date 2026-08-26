@@ -7,7 +7,6 @@ config.yaml 结构(字段说明见 config.example.yaml):
     devices:        商城账号独特标识列表(必填, 至少一个)
     notify:         HA 手机通知(可选, 缺省不推送)
     field_defaults: 字段级全局默认配置(可选)
-    auto_discover:  消息出现新字段时自动创建 sensor(默认 true)
     republish_raw:  原样转发消息到 discovery broker(默认 false)
     availability:   实体可用性跟踪(默认 true)
 """
@@ -181,7 +180,6 @@ class Config:
     discovery: Optional[BrokerConfig] = None
     notify: Optional[NotifyConfig] = None
     field_defaults: dict = field(default_factory=dict)  # key -> FieldConfig
-    auto_discover: bool = True
     republish_raw: bool = False
     availability: bool = True
     discovery_prefix: str = DEFAULT_DISCOVERY_PREFIX
@@ -241,7 +239,6 @@ class Config:
             notify=notify,
             devices=devices,
             field_defaults=field_defaults,
-            auto_discover=bool(data.get("auto_discover", True)),
             republish_raw=bool(data.get("republish_raw", False)),
             availability=bool(data.get("availability", True)),
             discovery_prefix=str(data.get("discovery_prefix", DEFAULT_DISCOVERY_PREFIX)),

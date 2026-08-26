@@ -52,8 +52,8 @@ class TestSameBroker:
         assert b._same_broker() is True
 
 
-class TestAutoDiscover:
-    """auto_discover 开关真正生效: 关闭时未配置字段不建实体。"""
+class TestStaticSchema:
+    """静态 schema: 未在配置中定义的字段不建实体。"""
 
     class _FakeDisc:
         def __init__(self):
@@ -65,26 +65,17 @@ class TestAutoDiscover:
         def publish(self, topic, data, qos=0, retain=False):
             self.published.append((topic, data))
 
-    def test_unconfigured_field_published_when_on(self):
-        b = make_bridge()  # auto_discover 默认 True
+    def test_unconfigured_field_skipped(self):
+        b = make_bridge()
         b.disc = self._FakeDisc()
         dev = b.cfg.devices[0]  # 仅配置了 orderNo + raw_sensor
         b._publish_discovery(dev, TEST_TOPIC, {"orderNo": "x", "brandNewField": "y"})
         ids = set(b._published)
-        assert "mall_test_1234_order_no" in ids          # 配置字段
-        assert "mall_test_1234_brand_new_field" in ids   # 未配置字段也发布(auto 开)
-
-    def test_unconfigured_field_skipped_when_off(self):
-        b = make_bridge(auto_discover=False)
-        b.disc = self._FakeDisc()
-        dev = b.cfg.devices[0]
-        b._publish_discovery(dev, TEST_TOPIC, {"orderNo": "x", "brandNewField": "y"})
-        ids = set(b._published)
         assert "mall_test_1234_order_no" in ids                      # 配置字段照常
-        assert "mall_test_1234_brand_new_field" not in ids           # 未配置字段被跳过
+        assert "mall_test_1234_brand_new_field" not in ids           # 未配置字段跳过
 
     def test_field_configured_lookup(self):
-        b = make_bridge(auto_discover=False)
+        b = make_bridge()
         dev = b.cfg.devices[0]
         assert b._field_configured(dev, "orderNo") is True   # devices[].fields
         assert b._field_configured(dev, "status") is False   # 未定义

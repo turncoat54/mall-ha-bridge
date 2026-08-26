@@ -259,8 +259,10 @@ class Bridge:
                 fc = resolve_field(self.cfg, dev, key)
                 if not fc.enabled:
                     continue
-                if not self.cfg.auto_discover and not self._field_configured(dev, key):
-                    log.info("auto_discover 关闭, 忽略未配置字段 %s", key)
+                # 静态 schema: 未在 devices[].fields / field_defaults 定义的
+                # 字段不建实体, 只记日志; 新字段需人工在 fields 定义后重启容器
+                if not self._field_configured(dev, key):
+                    log.info("字段 %s 未在配置中定义, 忽略(静态 schema: 不自动建实体)", key)
                     continue
                 obj_id = field_object_id(dev, key, fc)
                 self._publish_once(
