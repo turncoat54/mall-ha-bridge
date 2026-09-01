@@ -107,3 +107,6 @@ availability: true        # 实体可用性跟踪: 插件离线时实体显示�
 # discovery_prefix: homeassistant    # HA discovery 前缀(默认 homeassistant)
 # availability_topic: mall_ha_bridge/availability
 log_level: INFO           # DEBUG / INFO / WARNING
+# seen_file: /app/data/seen_orders.json   # 订单指纹持久化(可选): (orderNo,event) 已处理
+                          # 记录落盘, 重连重放/重复消息命中指纹直接跳过(幂等接收者)。
+                          # 启用需在 docker-compose.yml 挂载 ./data:/app/data 卷

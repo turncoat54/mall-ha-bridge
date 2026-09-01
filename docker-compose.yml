@@ -12,5 +12,7 @@ services:
     volumes:
       # 启动前把 config.example.yaml 复制为 config.yaml 并填好配置
       - ./config.yaml:/app/config/config.yaml:ro
+      # 订单指纹持久化(seen_file 启用时使用, 容器重建不丢)
+      - ./data:/app/data
     environment:
       - TZ=Asia/Shanghai

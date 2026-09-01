@@ -11,7 +11,6 @@ value_template 直接从原始主题取值, 因此插件无需再发布任何状
 """
 from __future__ import annotations
 
-import datetime as _dt
 import json
 import logging
 import os
@@ -39,34 +38,55 @@ log = logging.getLogger("mall-ha-bridge")
 
 CALLBACK_API = mqtt.CallbackAPIVersion.VERSION2
 
-# 消息新鲜度阈值: occurredAt 早于当前时间超过此值视为"重放的旧消息"
-# (远程 broker 断开重连后会把 retained 旧订单消息重发给本桥, 2026-08-28/30、
-# 09-01 每日 00:31 实测复现)。旧消息整条跳过: 不推手机通知、不 republish、
-# 不更新 discovery——它们不是新事件, 只是 broker 的 retained 重放。
-MAX_MSG_AGE_SEC = 30 * 60  # 30 分钟
 
+class SeenOrders:
+    """订单指纹持久化(幂等接收者): (orderNo, event) → 处理时间戳。
 
-def _is_stale(fields: Optional[dict], max_age_sec: int = MAX_MSG_AGE_SEC) -> bool:
-    """occurredAt 距今超过阈值 → True(重放旧消息)。
-
-    解析失败/缺失 occurredAt 一律返回 False(保守: 不误杀真实消息)。
-    兼容 "2026-08-25T10:06:02" 与 "2026-08-25 10:06:02"(取前 19 位, 秒精度)。
+    远程 broker 断线重连后会把 retained 旧订单消息重发给本桥(2026-08-28/30、
+    09-01 每日 00:31 实测复现), 指纹用于识别"这条消息已经处理过":
+      - 命中指纹 → 跳过(不通知/不 republish/不更新 discovery)
+      - 未命中 → 正常处理, 完成后写入指纹
+    落盘文件跨容器重建/重启有效。超过 MAX 条按时间清理最旧的 20%。
     """
-    if not fields:
-        return False
-    raw = str(fields.get("occurredAt") or "").strip()
-    if not raw:
-        return False
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+
+    MAX = 500
+
+    def __init__(self, path: str):
+        self.path = path
+        self._data: dict[str, float] = {}  # f"{orderNo}|{event}" -> ts
+        self._lock = threading.Lock()
+        self._load()
+
+    def _load(self) -> None:
         try:
-            msg_ts = _dt.datetime.strptime(raw[:19], fmt)
-            break
-        except ValueError:
-            continue
-    else:
-        return False  # 时间格式无法解析, 不跳过
-    age = (_dt.datetime.now() - msg_ts).total_seconds()
-    return age > max_age_sec
+            with open(self.path, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self._data = {str(k): float(v) for k, v in data.items()}
+        except (OSError, ValueError, TypeError):
+            self._data = {}
+
+    def _save(self) -> None:
+        tmp = self.path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(self._data, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, self.path)
+
+    def seen(self, order_no: str, event: str) -> bool:
+        with self._lock:
+            return f"{order_no}|{event}" in self._data
+
+    def mark(self, order_no: str, event: str) -> None:
+        with self._lock:
+            self._data[f"{order_no}|{event}"] = time.time()
+            if len(self._data) > self.MAX:
+                # 清理最旧的 20%: 按 ts 排序取 1/5 分位, 更旧的删除
+                cutoff = sorted(self._data.values())[len(self._data) // 5]
+                self._data = {k: v for k, v in self._data.items() if v >= cutoff}
+            try:
+                self._save()
+            except OSError:
+                log.exception("写指纹文件失败 %s", self.path)
 
 
 def _client_id(role: str) -> str:
@@ -89,6 +109,11 @@ class Bridge:
         self.disc: Optional[mqtt.Client] = None
         # 可选: HA 手机通知(配置 notify 段时启用)
         self.notifier = Notifier(cfg.notify) if cfg.notify is not None else None
+        # 可选: 订单指纹持久化(配置 seen_file 时启用, 幂等去重)
+        self.seen = SeenOrders(cfg.seen_file) if cfg.seen_file else None
+        if self.seen is not None:
+            log.info("订单指纹已启用: %s (%d 条已记录)",
+                     cfg.seen_file, len(self.seen._data))
 
     # ------------------------------------------------------------------ #
     # 生命周期
@@ -244,6 +269,17 @@ class Bridge:
         b1, b2 = self.cfg.mqtt, self.cfg.discovery_broker()
         return b1.host == b2.host and b1.port == b2.port
 
+    @staticmethod
+    def _fingerprint(fields: Optional[dict]) -> Optional[tuple[str, str]]:
+        """订单指纹键: (orderNo, event)。缺任一字段返回 None(不参与幂等)。"""
+        if not fields:
+            return None
+        order_no = str(fields.get("orderNo") or fields.get("orderId") or "").strip()
+        event = str(fields.get("event") or "").strip()
+        if not order_no or not event:
+            return None
+        return (order_no, event)
+
     def _handle_message(self, topic: str, payload: bytes) -> None:
         if self._is_duplicate(topic, payload):
             log.debug("忽略重复消息 topic=%s", topic)
@@ -258,10 +294,12 @@ class Bridge:
             topic,
             sorted(fields) if fields else "(非 JSON, 仅更新原始消息)",
         )
-        if _is_stale(fields):
+        # 幂等: 指纹命中 = 这条订单事件处理过(重连重放/重复投递), 整条跳过
+        fp_key = self._fingerprint(fields)
+        if fp_key is not None and self.seen is not None and self.seen.seen(*fp_key):
             log.info(
-                "跳过过期消息 topic=%s occurredAt=%s (retained 重放, 非新事件)",
-                topic, fields.get("occurredAt") if fields else None,
+                "指纹命中, 已处理过: orderNo=%s event=%s, 跳过(幂等)",
+                fp_key[0], fp_key[1],
             )
             return
         # 手机通知(独立于 discovery 连接状态; 内部容错, 失败不影响主流程)
@@ -282,6 +320,10 @@ class Bridge:
             else:
                 self.disc.publish(topic, payload, qos=self.cfg.mqtt.qos)
                 log.debug("原消息已转发: %s", topic)
+        # 处理完成: 记指纹(通知已尝试 + 转发已执行), 供重放时幂等跳过
+        if fp_key is not None and self.seen is not None:
+            self.seen.mark(*fp_key)
+            log.debug("指纹已记录: orderNo=%s event=%s", fp_key[0], fp_key[1])
 
     def _publish_discovery(
         self,

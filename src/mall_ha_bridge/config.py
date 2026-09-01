@@ -185,6 +185,7 @@ class Config:
     discovery_prefix: str = DEFAULT_DISCOVERY_PREFIX
     availability_topic: str = DEFAULT_AVAILABILITY_TOPIC
     log_level: str = "INFO"
+    seen_file: str = ""  # 订单指纹持久化文件(幂等去重, 空=不启用)
 
     def discovery_broker(self) -> BrokerConfig:
         """HA 侧 broker(discovery 段缺省时复用 mqtt 段)。"""
@@ -244,4 +245,5 @@ class Config:
             discovery_prefix=str(data.get("discovery_prefix", DEFAULT_DISCOVERY_PREFIX)),
             availability_topic=str(data.get("availability_topic", DEFAULT_AVAILABILITY_TOPIC)),
             log_level=str(data.get("log_level", "INFO")).upper(),
+            seen_file=str(data.get("seen_file") or ""),
         )

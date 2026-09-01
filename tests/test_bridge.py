@@ -81,3 +81,80 @@ class TestStaticSchema:
         assert b._field_configured(dev, "status") is False   # 未定义
         b.cfg.field_defaults["status"] = None
         assert b._field_configured(dev, "status") is True    # field_defaults 兜底
+
+
+class TestSeenOrders:
+    """订单指纹持久化(幂等接收者): 重连重放/重复消息不再处理。"""
+
+    def test_mark_then_seen(self, tmp_path):
+        from mall_ha_bridge.bridge import SeenOrders
+
+        so = SeenOrders(str(tmp_path / "seen.json"))
+        assert so.seen("o1", "takeout.paid") is False
+        so.mark("o1", "takeout.paid")
+        assert so.seen("o1", "takeout.paid") is True
+        assert so.seen("o1", "takeout.deliverd") is False  # 不同 event 不同指纹
+
+    def test_persist_across_reload(self, tmp_path):
+        """落盘: 模拟进程重启/容器重建后指纹仍有效。"""
+        from mall_ha_bridge.bridge import SeenOrders
+
+        p = str(tmp_path / "seen.json")
+        so = SeenOrders(p)
+        so.mark("o1", "takeout.paid")
+        so2 = SeenOrders(p)  # 重新加载(重启)
+        assert so2.seen("o1", "takeout.paid") is True
+
+    def test_bad_file_tolerated(self, tmp_path):
+        from mall_ha_bridge.bridge import SeenOrders
+
+        p = str(tmp_path / "seen.json")
+        with open(p, "w") as f:
+            f.write("not-json{{{")
+        so = SeenOrders(p)
+        assert so.seen("o1", "x") is False
+        so.mark("o1", "x")  # 坏文件也能继续工作
+        assert so.seen("o1", "x") is True
+
+    def test_prune_when_over_max(self, tmp_path):
+        from mall_ha_bridge.bridge import SeenOrders
+
+        so = SeenOrders(str(tmp_path / "seen.json"))
+        so.MAX = 10
+        for i in range(12):
+            so.mark(f"o{i}", "ev")
+        assert len(so._data) <= 10  # 超过上限后清理最旧
+
+
+class TestFingerprint:
+    """_fingerprint 提取 + _handle_message 幂等链路。"""
+
+    def test_fingerprint_extract(self):
+        b = make_bridge()
+        assert b._fingerprint({"orderNo": "o1", "event": "takeout.paid"}) == ("o1", "takeout.paid")
+        assert b._fingerprint({"orderId": "x1", "event": "e"}) == ("x1", "e")  # orderId 兜底
+        assert b._fingerprint({"orderNo": "o1"}) is None        # 缺 event
+        assert b._fingerprint({"event": "e"}) is None            # 缺订单号
+        assert b._fingerprint({}) is None
+        assert b._fingerprint(None) is None
+
+    def test_handle_message_idempotent(self, tmp_path):
+        """指纹命中 → 整条跳过(不通知/不转发); 未命中 → 处理并记录。"""
+        b = make_bridge(seen_file=str(tmp_path / "seen.json"))
+        b.disc = TestStaticSchema._FakeDisc()
+        calls = []
+
+        class _N:
+            def send(self, fields):
+                calls.append(fields)
+
+        b.notifier = _N()
+        payload = b'{"orderNo":"o1","event":"takeout.paid","shopName":"x"}'
+        b._handle_message(TEST_TOPIC, payload)
+        assert len(calls) == 1                        # 第一次: 正常处理(通知)
+        assert len(b.disc.published) > 0              # 并发布 discovery
+        assert b.seen.seen("o1", "takeout.paid") is True
+        n_pub = len(b.disc.published)
+        b._handle_message(TEST_TOPIC, payload)        # 重放同一消息
+        assert len(calls) == 1                        # 第二次: 指纹命中, 不再通知
+        assert len(b.disc.published) == n_pub         # 也不发布 discovery/republish
