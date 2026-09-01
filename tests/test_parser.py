@@ -8,9 +8,9 @@ from mall_ha_bridge.parser import humanize_key, parse_payload, sanitize_object_i
 # 商城真实推送的消息样例(2026-08-21 从 mall/ha/.../takeout 主题捕获)
 REAL_TAKEOUT_MESSAGE = {
     "event": "takeout.paid",
-    "orderId": "2090612409536401409",
-    "orderNo": "o202608210930141",
-    "shopName": "惠满家超市",
+    "orderId": "2100000000000000002",
+    "orderNo": "o202601010000002",
+    "shopName": "示例超市",
     "status": 0,
     "taskStatus": 1,
     "etaMinutes": 1305,
@@ -58,9 +58,9 @@ class TestParsePayload:
         p = parse_payload(json.dumps(REAL_TAKEOUT_MESSAGE).encode("utf-8"))
         assert p == {
             "event": "takeout.paid",
-            "orderId": "2090612409536401409",
-            "orderNo": "o202608210930141",
-            "shopName": "惠满家超市",
+            "orderId": "2100000000000000002",
+            "orderNo": "o202601010000002",
+            "shopName": "示例超市",
             "status": "0",
             "taskStatus": "1",
             "etaMinutes": "1305",

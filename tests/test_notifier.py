@@ -15,9 +15,9 @@ from mall_ha_bridge.notifier import (
 
 REAL_MSG = {
     "event": "takeout.paid",
-    "orderId": "2090991251358797826",
-    "orderNo": "o202608221035371",
-    "shopName": "惠满家超市",
+    "orderId": "2100000000000000001",
+    "orderNo": "o202601010000001",
+    "shopName": "示例超市",
     "status": "0",
     "taskStatus": "1",
     "etaMinutes": "1305",
@@ -58,15 +58,15 @@ def test_humanize_eta(value, expected):
 
 def test_build_notification_real_message():
     title, message = build_notification(REAL_MSG)
-    assert title == "惠满家超市 · 取餐通知"
+    assert title == "示例超市 · 取餐通知"
     lines = message.split("\n")
     assert len(lines) == 4
-    assert lines[0] == "🏪 店铺: 惠满家超市"
+    assert lines[0] == "🏪 店铺: 示例超市"
     assert lines[1] == "📌 状态: 支付成功"
-    assert lines[2] == "🧾 订单号: o202608221035371"
+    assert lines[2] == "🧾 订单号: o202601010000001"
     assert lines[3] == "⏱ 预计送达: 约 21 小时 45 分钟"
     # 无用字段被丢弃(注意: orderNo 里含数字 0, 断言用键名而非字符)
-    for junk in ("orderId", "status", "taskStatus", "occurredAt", "2090991251358797826"):
+    for junk in ("orderId", "status", "taskStatus", "occurredAt", "2100000000000000001"):
         assert junk not in message
 
 
@@ -108,7 +108,7 @@ def test_send_success():
     assert req.headers["Authorization"] == "Bearer tok123"
     assert req.headers["Content-type"] == "application/json"
     body = req.data.decode("utf-8")
-    assert "惠满家超市 · 取餐通知" in body
+    assert "示例超市 · 取餐通知" in body
     assert "\\n" in body  # 消息含换行
 
 
