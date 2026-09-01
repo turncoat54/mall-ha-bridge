@@ -11,6 +11,7 @@ value_template 直接从原始主题取值, 因此插件无需再发布任何状
 """
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import logging
 import os
@@ -37,6 +38,35 @@ from .parser import parse_payload
 log = logging.getLogger("mall-ha-bridge")
 
 CALLBACK_API = mqtt.CallbackAPIVersion.VERSION2
+
+# 消息新鲜度阈值: occurredAt 早于当前时间超过此值视为"重放的旧消息"
+# (远程 broker 断开重连后会把 retained 旧订单消息重发给本桥, 2026-08-28/30、
+# 09-01 每日 00:31 实测复现)。旧消息整条跳过: 不推手机通知、不 republish、
+# 不更新 discovery——它们不是新事件, 只是 broker 的 retained 重放。
+MAX_MSG_AGE_SEC = 30 * 60  # 30 分钟
+
+
+def _is_stale(fields: Optional[dict], max_age_sec: int = MAX_MSG_AGE_SEC) -> bool:
+    """occurredAt 距今超过阈值 → True(重放旧消息)。
+
+    解析失败/缺失 occurredAt 一律返回 False(保守: 不误杀真实消息)。
+    兼容 "2026-08-25T10:06:02" 与 "2026-08-25 10:06:02"(取前 19 位, 秒精度)。
+    """
+    if not fields:
+        return False
+    raw = str(fields.get("occurredAt") or "").strip()
+    if not raw:
+        return False
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            msg_ts = _dt.datetime.strptime(raw[:19], fmt)
+            break
+        except ValueError:
+            continue
+    else:
+        return False  # 时间格式无法解析, 不跳过
+    age = (_dt.datetime.now() - msg_ts).total_seconds()
+    return age > max_age_sec
 
 
 def _client_id(role: str) -> str:
@@ -228,6 +258,12 @@ class Bridge:
             topic,
             sorted(fields) if fields else "(非 JSON, 仅更新原始消息)",
         )
+        if _is_stale(fields):
+            log.info(
+                "跳过过期消息 topic=%s occurredAt=%s (retained 重放, 非新事件)",
+                topic, fields.get("occurredAt") if fields else None,
+            )
+            return
         # 手机通知(独立于 discovery 连接状态; 内部容错, 失败不影响主流程)
         if self.notifier is not None:
             self.notifier.send(fields or {})
