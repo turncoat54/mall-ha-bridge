@@ -5,16 +5,16 @@
     takeout.paid → takeout.picked_up → takeout.out_for_delivery
     → takeout.near_door → takeout.deliverd
 
-真实消息样例(2026-08-22 捕获):
+真实消息样例(2026-08-22 捕获, 脱敏):
     {
       "event": "takeout.paid",
-      "orderId": "2090991251358797826",
-      "orderNo": "o202608221035371",
-      "shopName": "惠满家超市",
+      "orderId": "2100000000000000001",
+      "orderNo": "o202601010000001",
+      "shopName": "示例超市",
       "status": 0,
       "taskStatus": 1,
       "etaMinutes": 1305,
-      "occurredAt": "2026-08-22T10:35:40.148741074+08:00"
+      "occurredAt": "2026-01-01T10:35:40.000000000+08:00"
     }
 
 用法(容器内):
@@ -44,7 +44,7 @@ STAGES = [
     ("takeout.deliverd",         4, 4, 0,  {}),  # 已送达
 ]
 
-SHOP_NAMES = ["惠满家超市", "米村拌饭(万达店)", "沙县小吃(人民路店)"]
+SHOP_NAMES = ["示例超市", "示例餐厅(万达店)", "示例小吃(人民路店)"]
 
 
 def rand(n: int) -> str:

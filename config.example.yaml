@@ -46,11 +46,11 @@ devices:
     # 逐字段定制(可选; 不写则自动生成, 字段名做展示名)
     # 字段按商城实际推送的消息为准(当前示例: 外卖订单 takeout 消息)
     # ------------------------------------------------
-    # 消息字段说明(商城契约 2026-08-22 实捕示例):
-    # {"event":"takeout.paid","orderId":"2090991251358797826",
-    #  "orderNo":"o202608221035371","shopName":"惠满家超市","status":0,
+    # 消息字段说明(商城契约 2026-08-22 实捕示例, 脱敏):
+    # {"event":"takeout.paid","orderId":"2100000000000000001",
+    #  "orderNo":"o202601010000001","shopName":"示例超市","status":0,
     #  "taskStatus":1,"etaMinutes":1305,
-    #  "occurredAt":"2026-08-22T10:35:40.148741074+08:00"}
+    #  "occurredAt":"2026-01-01T10:35:40.000000000+08:00"}
     # event: takeout.paid=支付成功 | takeout.picked_up=骑手已取餐 |
     #   takeout.out_for_delivery=配送中/已发货 | takeout.near_door=快到家
     #   (进入收货围栏, 多带 distanceMeters) | takeout.deliverd=已送达
